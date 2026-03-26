@@ -1,0 +1,106 @@
+---
+title: "Modules"
+description: "Define and manage system modules that represent navigable sections of the application."
+---
+
+A module represents a named section of MindCorp — such as Inventario or Seguridad — with a unique key (`clave`) and a URL path (`ruta`). Modules serve as the foundation of the permission system: each profile can be granted up to 5 permission types per module (view, create, edit, delete, and detail).
+
+## Accessing the Modules page
+
+Navigate to **Seguridad → Módulos** in the top navigation menu. The **Seguridad** dropdown is visible when you hold any `modulo.*` permission claim (or when `esAdmin` is `true`). The module key in the navigation check is `modulo.`.
+
+## What you see
+
+The page displays a paginated table with 5 modules per page. Each row shows:
+
+| Column | Description |
+|---|---|
+| **Clave** | The unique module key used in permission strings (e.g., `mod_seguridad`) |
+| **Nombre del Módulo** | The human-readable display name (e.g., "Seguridad") |
+| **Ruta (URL)** | The URL path for the module (e.g., `/modulos`) |
+| **Editar** | Pencil icon to edit the module (requires `modulo.editar`) |
+| **Eliminar** | Trash icon to delete the module (requires `modulo.eliminar`) |
+
+## Creating a module
+
+<Steps>
+  <Step title="Open the create dialog">
+    Click **Nuevo Módulo**. This button is only visible if you have the `modulo.agregar` permission.
+  </Step>
+  <Step title="Enter a module name">
+    Type a descriptive name in the **Nombre del Módulo** field — for example, `Inventario`. Minimum 3 characters, maximum 100.
+  </Step>
+  <Step title="Enter a module key">
+    Type a unique key in the **Clave del Módulo** field. The key is forced to lowercase automatically. For example: `mod_seguridad`.
+  </Step>
+  <Step title="Enter a route">
+    Type the URL path in the **Ruta (URL)** field. For example: `/modulos`. The path must start with `/`.
+  </Step>
+  <Step title="Save">
+    Click **Guardar Módulo**. The table will reload showing the new entry.
+  </Step>
+</Steps>
+
+## Editing a module
+
+Click the pencil icon on any row to open the edit dialog. You can update the name, key, and route. The same validation rules apply as when creating a module. Click **Guardar Cambios** to save.
+
+## Deleting a module
+
+Click the trash icon on any row. A confirmation dialog appears before the deletion.
+
+<Warning>
+  Deleting a module removes it from the navigation menu immediately and orphans any permissions that were assigned to it. Profiles that had permissions for this module will retain the stored permission records, but the module will no longer appear in the permission assignment screen or the navigation.
+</Warning>
+
+## Validation rules
+
+All fields are validated client-side before submission:
+
+<AccordionGroup>
+  <Accordion title="Name (Nombre del Módulo)">
+    - Minimum 3 characters
+    - Maximum 100 characters
+    - Special characters such as `<`, `>`, `"`, `'`, `;`, `(`, `)`, `&`, `+` are stripped
+  </Accordion>
+  <Accordion title="Key (clave)">
+    - Only lowercase letters, digits, and underscores are allowed
+    - Pattern: `/^[a-z0-9_]+$/`
+    - Input is automatically converted to lowercase as you type
+    - Must be unique across all modules
+  </Accordion>
+  <Accordion title="Route (ruta)">
+    - Must start with `/`
+    - Only alphanumeric characters, `/`, and `-` are allowed
+    - Pattern: `/^\/[a-zA-Z0-9\/\-]*$/`
+    - Must be unique across all modules
+  </Accordion>
+</AccordionGroup>
+
+If a duplicate key or route is detected against any existing module, the form will not submit and an error message will be shown.
+
+## Required permissions
+
+| Permission string | Action |
+|---|---|
+| `modulo.agregar` | Create new modules (shows **Nuevo Módulo** button) |
+| `modulo.editar` | Edit existing modules (shows pencil icon per row) |
+| `modulo.eliminar` | Delete modules (shows trash icon per row) |
+
+<Note>
+  The Modules page is accessible to any user whose JWT includes at least one `modulo.*` claim, because the **Seguridad** dropdown checks for any matching prefix. Holding `modulo.agregar` alone is sufficient to see the page and its table.
+</Note>
+
+## Relationship to permissions
+
+The module key (`clave`) forms the prefix of all permission strings used in the system. For a module with key `usuario`, the five permission strings are:
+
+```
+usuario.consultar
+usuario.agregar
+usuario.editar
+usuario.eliminar
+usuario.detalle
+```
+
+These strings are checked at runtime via the `TienePermiso` helper and the `ClaimsExtension` class. See [Permissions](/security/permissions) for how to assign these to profiles.

@@ -1,0 +1,193 @@
+---
+title: "Architecture"
+description: "How the MindCorp frontend, backend API, and authentication layers work together."
+---
+
+## Overview
+
+MindCorp uses a two-tier architecture. The **Razor Pages frontend** (this project) is a stateless presentation layer — it holds no database and owns no business logic. All data lives in the **WebCoorporativaAPI** backend, which the frontend reaches exclusively through HTTP.
+
+<CardGroup cols={2}>
+  <Card title="Razor Pages frontend" icon="layout-dashboard">
+    ASP.NET Core Razor Pages (`net10.0`). Handles rendering, session management, cookie auth, and permission-gated navigation. Talks to the API via `ApiService`.
+  </Card>
+  <Card title="WebCoorporativaAPI backend" icon="server">
+    Separate REST API. Owns all persistence and business logic. Issues JWTs on successful authentication.
+  </Card>
+  <Card title="ApiService" icon="plug">
+    Scoped HTTP client wrapper. Reads the JWT from the server-side session and injects it as a `Bearer` token on every outbound request.
+  </Card>
+  <Card title="Cookie + session auth" icon="lock">
+    ASP.NET cookie authentication (`WebCoorporativa.AuthCookie`) tracks the user's identity. The raw JWT is stored separately in an 8-hour server-side session.
+  </Card>
+</CardGroup>
+
+## Request flow
+
+```
+Browser  →  Razor Page (POST /Login)
+                │
+                ├─ POST api/auth  →  WebCoorporativaAPI
+                │        ←  JWT
+                │
+                ├─ Decode JWT claims → sign-in cookie (ClaimsPrincipal)
+                └─ Store raw JWT in Session["token"]
+
+Subsequent requests:
+Browser  →  Razor Page
+                │
+                └─ ApiService.Get/Post/Put/Delete
+                        │  reads Session["token"]
+                        └─ Authorization: Bearer <jwt>  →  WebCoorporativaAPI
+```
+
+1. The user submits the login form (with a Turnstile CAPTCHA token).
+2. The Login page handler calls `POST api/auth` via `ApiService`.
+3. On success, the frontend decodes the returned JWT, extracts its claims, and calls `HttpContext.SignInAsync` to create the auth cookie.
+4. The raw JWT is stored in `HttpContext.Session` under the key `"token"`.
+5. All subsequent page handlers call `ApiService` methods, which silently attach the token before dispatching each request.
+
+## ApiService
+
+`ApiService` (`Services/ApiService.cs`) is the single point through which all backend calls flow. It is registered as **scoped** so it shares the request lifetime (and the same `HttpContext`) as the Razor Page that uses it.
+
+### Token injection
+
+Every outbound request is created as an `HttpRequestMessage` and passed through `AddTokenToRequest` before being sent:
+
+```csharp Services/ApiService.cs
+private void AddTokenToRequest(HttpRequestMessage request)
+{
+    string? token = null;
+
+    var tokenBytes = _httpContextAccessor.HttpContext?.Session?.Get("token");
+    if (tokenBytes != null)
+        token = Encoding.UTF8.GetString(tokenBytes);
+
+    if (!string.IsNullOrEmpty(token))
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+}
+```
+
+### Method signatures
+
+```csharp Services/ApiService.cs
+// Fetch a resource
+public async Task<HttpResponseMessage> Get(string url)
+
+// Create a resource — serializes data as JSON
+public async Task<HttpResponseMessage> Post<T>(string url, T data)
+
+// Replace a resource — serializes data as JSON
+public async Task<HttpResponseMessage> Put<T>(string url, T data)
+
+// Delete a resource
+public async Task<HttpResponseMessage> Delete(string url)
+```
+
+All four methods follow the same pattern: build an `HttpRequestMessage`, call `AddTokenToRequest`, then `SendAsync`.
+
+<Tip>
+  Because `ApiService` is scoped, you can inject it directly into a Razor Page's constructor or as a property — no need for manual instantiation.
+</Tip>
+
+## Authentication and session
+
+Authentication is configured in `Program.cs` using two complementary mechanisms:
+
+<Tabs>
+  <Tab title="Cookie authentication">
+    ```csharp Program.cs
+    builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+        .AddCookie(options =>
+        {
+            options.Cookie.Name = "WebCoorporativa.AuthCookie";
+            options.LoginPath = "/Login";
+            options.AccessDeniedPath = "/Error";
+
+            options.Cookie.HttpOnly = true;
+            options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+            options.Cookie.SameSite = SameSiteMode.Lax;
+
+            options.ExpireTimeSpan = TimeSpan.FromHours(1);
+            options.SlidingExpiration = true;
+        });
+    ```
+
+    The auth cookie carries the `ClaimsPrincipal` (identity and claims). It expires after **1 hour** of inactivity, but the expiry resets on each request (sliding expiration).
+  </Tab>
+  <Tab title="Server-side session">
+    ```csharp Program.cs
+    builder.Services.AddSession(options =>
+    {
+        options.IdleTimeout = TimeSpan.FromHours(8);
+        options.Cookie.HttpOnly = true;
+        options.Cookie.IsEssential = true;
+    });
+    ```
+
+    The raw JWT is stored in server-side session (`Session["token"]`) with an **8-hour** idle timeout. `ApiService` reads this value on every API call.
+  </Tab>
+</Tabs>
+
+<Note>
+  The session timeout (8 hours) is intentionally longer than the auth cookie expiry (1 hour sliding). If a user's auth cookie expires, they are redirected to `/Login` and must re-authenticate before the session is reused.
+</Note>
+
+## Permission model
+
+After a successful login the JWT is decoded using `System.IdentityModel.Tokens.Jwt`. The resulting claims are stored in the `ClaimsPrincipal` inside the auth cookie. Three claim types drive access control:
+
+| Claim | Type | Description |
+|-------|------|-------------|
+| `esAdmin` | `bool` (`"true"`) | Grants access to all modules and all menu sections unconditionally. |
+| `permiso` | `string` (multi-value) | Each value is a dot-separated permission string such as `perfil.consultar` or `principal11.agregar`. A user may have many `permiso` claims. |
+| `perfilId` | `string` | Identifier of the user's assigned profile. Used for profile-level queries. |
+
+### Checking permissions in views
+
+The shared layout defines a local helper that checks whether the current user holds at least one permission matching a given prefix:
+
+```csharp Pages/Shared/_Layout.cshtml
+bool esAdmin = User.Claims.Any(c => c.Type == "esAdmin" && c.Value == "true");
+
+bool TieneAlgunPermiso(params string[] prefijos) =>
+    esAdmin || User.Claims.Any(c => c.Type == "permiso" &&
+        prefijos.Any(p => c.Value.StartsWith(p)));
+```
+
+Admin users short-circuit every check: `esAdmin == true` is sufficient to pass any `TieneAlgunPermiso` call.
+
+## Navigation structure
+
+The `Pages/` directory is organized into three areas:
+
+```
+Pages/
+├── Login.cshtml          # Public — no auth required
+├── Logout.cshtml
+├── Index.cshtml          # Dashboard — requires auth
+├── ProfileUser.cshtml    # User's own profile
+├── Module/               # Admin CRUD pages
+│   ├── Modulos.cshtml      # permiso: modulo.*
+│   ├── Perfil.cshtml       # permiso: perfil.*
+│   ├── PermisosPerfil.cshtml  # permiso: permisosperfil.*
+│   └── Usuario.cshtml      # permiso: usuario.*
+├── Principales/          # Functional demo pages
+│   ├── PrincipalU1.cshtml  # permiso: principal11.*
+│   ├── PrincipalU2.cshtml  # permiso: principal12.*
+│   ├── PrincipalD1.cshtml  # permiso: principal21.*
+│   └── PrincipalD2.cshtml  # permiso: principal22.*
+└── Shared/
+    └── _Layout.cshtml    # Master layout with dynamic nav
+```
+
+The top navigation bar in `_Layout.cshtml` evaluates three permission groups at render time and conditionally shows or hides each dropdown:
+
+| Menu group | Required claim prefix(es) |
+|------------|---------------------------|
+| **Principal 1** | `principal11.*` or `principal12.*` |
+| **Principal 2** | `principal21.*` or `principal22.*` |
+| **Seguridad** | `perfil.*`, `permisosperfil.*`, `usuario.*`, or `modulo.*` |
+
+The user dropdown (**Mi Perfil**, **Cerrar Sesión**) is always visible to authenticated users regardless of permissions.

@@ -1,0 +1,65 @@
+---
+title: "Welcome to MindCorp"
+description: "A corporate web management portal for secure administration of users, profiles, modules, and permissions."
+---
+
+MindCorp is a corporate management portal built on ASP.NET Core Razor Pages. It provides a complete security administration layer — letting administrators manage user accounts, role profiles, system modules, and granular per-action permissions — all through a clean, responsive web interface.
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get MindCorp running and log in for the first time
+  </Card>
+  <Card title="Architecture" icon="sitemap" href="/architecture">
+    Understand how the frontend, API, and auth layers fit together
+  </Card>
+  <Card title="Authentication" icon="lock" href="/authentication/overview">
+    Learn how login, JWT tokens, and session cookies work
+  </Card>
+  <Card title="Security Administration" icon="shield-halved" href="/security/profiles">
+    Manage profiles, users, modules, and permissions
+  </Card>
+</CardGroup>
+
+## What MindCorp provides
+
+<CardGroup cols={3}>
+  <Card title="Secure Access" icon="key">
+    JWT authentication with Cloudflare Turnstile CAPTCHA and cookie-based sessions
+  </Card>
+  <Card title="Role-Based Control" icon="users-gear">
+    Fine-grained permissions per profile: view, create, edit, delete, and detail access per module
+  </Card>
+  <Card title="Full CRUD Admin" icon="table-list">
+    Complete management screens for Modules, Profiles, Users, and Profile Permissions
+  </Card>
+  <Card title="Dynamic Navigation" icon="bars">
+    The sidebar and top menu adapt automatically based on the logged-in user's permissions
+  </Card>
+  <Card title="API-Backed" icon="plug">
+    All data flows through the companion WebCoorporativaAPI, keeping the frontend stateless
+  </Card>
+  <Card title="Responsive Design" icon="mobile-screen">
+    Neumorphic Bootstrap 5 UI that works on desktop and mobile
+  </Card>
+</CardGroup>
+
+## How to navigate these docs
+
+<Steps>
+  <Step title="Get Started">
+    Follow the [Quick Start](/quickstart) guide to set up MindCorp and access the portal for the first time.
+  </Step>
+  <Step title="Understand authentication">
+    Read the [Authentication Overview](/authentication/overview) to understand how login, JWT tokens, and sessions work.
+  </Step>
+  <Step title="Administer security">
+    Learn how to manage [Profiles](/security/profiles), [Users](/security/users), [Modules](/security/modules), and [Permissions](/security/permissions).
+  </Step>
+  <Step title="Configure and deploy">
+    Set up the [API connection](/configuration/api-integration) and review [deployment options](/configuration/deployment).
+  </Step>
+</Steps>
+
+<Note>
+MindCorp requires a running instance of the **WebCoorporativaAPI** backend. The frontend is a Razor Pages application that does not store data itself — all persistence is handled by the API.
+</Note>

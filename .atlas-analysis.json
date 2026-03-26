@@ -1,0 +1,89 @@
+{
+  "projectType": "saas",
+  "projectName": "MindCorp",
+  "projectDescription": "A corporate web management portal built with ASP.NET Core Razor Pages that provides secure user authentication, role-based access control, and CRUD administration of profiles, users, modules, and permissions.",
+  "theme": "luma",
+  "primaryColor": "#0d6efd",
+  "lightColor": "#ecf0f3",
+  "darkColor": "#1a1a2e",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Authentication",
+            "pages": [
+              "authentication/overview",
+              "authentication/login",
+              "authentication/jwt-session"
+            ]
+          },
+          {
+            "group": "Security Administration",
+            "pages": [
+              "security/profiles",
+              "security/users",
+              "security/modules",
+              "security/permissions"
+            ]
+          },
+          {
+            "group": "Navigation & Pages",
+            "pages": [
+              "pages/overview",
+              "pages/principal-menus",
+              "pages/user-profile"
+            ]
+          },
+          {
+            "group": "Configuration & Deployment",
+            "pages": [
+              "configuration/appsettings",
+              "configuration/api-integration",
+              "configuration/deployment"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "JWT-based authentication with Cloudflare Turnstile CAPTCHA protection",
+    "Cookie-based session management with 1-hour sliding expiration",
+    "Role-based access control with fine-grained per-action permissions (agregar, editar, eliminar, consultar, detalle)",
+    "Full CRUD management for Modules, Profiles, Users, and Profile Permissions",
+    "Dynamic navigation menu that adapts based on user claims and permissions",
+    "Neumorphic UI design built on Bootstrap 5 with Bootstrap Icons",
+    "Backend API integration via a centralized ApiService with Bearer token injection",
+    "User profile page with avatar and personal details from the API",
+    "Server-side permission checks enforced on every page load",
+    "Client-side input sanitization and validation on forms"
+  ],
+  "publicApiSurface": [
+    "POST api/auth — Login, returns JWT token",
+    "POST api/auth/register — Create new user",
+    "GET api/Usuario — List all users (filtered by name, profile, state)",
+    "PUT api/Usuario/{id} — Update user profile and avatar",
+    "DELETE api/Usuario/{id} — Delete user",
+    "GET api/Usuario/mi-perfil — Get current user's profile",
+    "GET api/Perfil — List all profiles",
+    "POST api/Perfil — Create profile",
+    "PUT api/Perfil/{id} — Update profile",
+    "DELETE api/Perfil/{id} — Delete profile",
+    "GET api/modulo — List all modules",
+    "POST api/modulo — Create module",
+    "PUT api/modulo/{id} — Update module",
+    "DELETE api/modulo/{id} — Delete module",
+    "GET api/permisoperfil/{idPerfil} — Get permissions for a profile",
+    "POST api/PermisoPerfil/guardar-permisos — Save profile permissions"
+  ]
+}

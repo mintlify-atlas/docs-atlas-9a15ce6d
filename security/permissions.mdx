@@ -1,0 +1,106 @@
+---
+title: "Permissions"
+description: "Assign module-level permissions to profiles to control what each role can do."
+---
+
+Permissions in MindCorp are defined at the intersection of a **profile** and a **module**. For each combination, up to 5 independent permission bits can be granted:
+
+<CardGroup cols={3}>
+  <Card title="Consulta" icon="eye">
+    View or list records within the module.
+  </Card>
+  <Card title="Agregar" icon="plus">
+    Create new records within the module.
+  </Card>
+  <Card title="Editar" icon="pencil">
+    Update existing records within the module.
+  </Card>
+  <Card title="Eliminar" icon="trash">
+    Delete records within the module.
+  </Card>
+  <Card title="Detalle" icon="file">
+    View the full detail of an individual record.
+  </Card>
+</CardGroup>
+
+<Tip>
+  Set up your [Profiles](/security/profiles) and [Modules](/security/modules) before assigning permissions. The Permissions page requires at least one profile and at least one module to exist before you can configure anything.
+</Tip>
+
+## Accessing the Permissions page
+
+Navigate to **Seguridad → Permisos Perfil** in the top navigation menu. You must have the `permisosperfil.consultar` permission to access this page.
+
+## Assigning permissions to a profile
+
+<Steps>
+  <Step title="Select a profile">
+    Choose a profile from the **Perfil** dropdown at the top of the page.
+  </Step>
+  <Step title="Click Buscar">
+    Click the **Buscar** button. The table below will load all modules with their current permission states for the selected profile. Checkboxes that are already checked reflect permissions previously saved.
+  </Step>
+  <Step title="Configure permissions per module">
+    For each module row, check or uncheck the boxes in the **Agregar**, **Editar**, **Eliminar**, **Consultar**, and **Detalle** columns.
+
+    Note that **Consultar** (view) is a prerequisite for all other permissions in a row — unchecking it will automatically disable and clear all other checkboxes for that module.
+  </Step>
+  <Step title="Save">
+    Click **Guardar** to save the full permission set for the selected profile. A confirmation dialog will appear before the save is submitted.
+  </Step>
+</Steps>
+
+<Note>
+  Saving replaces **all** permissions for the selected profile at once. The operation sends the complete state of all modules — not just the ones you changed. If you uncheck everything and save, all existing permissions for that profile will be removed.
+</Note>
+
+## How permission strings work
+
+Each permission bit corresponds to a string that the application checks at runtime. The string is formed by combining the module's **key** (`clave`) with the permission type, separated by a dot.
+
+For a module with key `usuario`:
+
+| Permission bit | String checked at runtime |
+|---|---|
+| Consultar | `usuario.consultar` |
+| Agregar | `usuario.agregar` |
+| Editar | `usuario.editar` |
+| Eliminar | `usuario.eliminar` |
+| Detalle | `usuario.detalle` |
+
+These strings are stored as claims on the user's session and validated by the `TienePermiso` extension method in `ClaimsExtension.cs`.
+
+## The administrator flag
+
+If a profile has `bitAdministrador = true`, the `TienePermiso` check always returns `true` regardless of which permissions are stored. Admin profiles bypass the entire permission table — you do not need to assign any permissions to them.
+
+## Save operation details
+
+When you click **Guardar**, the page sends a `GuardarPermisosDto` to the API endpoint `POST api/PermisoPerfil/guardar-permisos`. This payload contains:
+
+```json
+{
+  "IdPerfil": 3,
+  "Modulos": [
+    {
+      "IdModulo": 1,
+      "IdPerfil": 3,
+      "BitConsulta": true,
+      "BitAgregar": true,
+      "BitEditar": false,
+      "BitEliminar": false,
+      "BitDetalle": false
+    },
+    ...
+  ]
+}
+```
+
+Every module is included in the payload, with all 5 bits set to their current checkbox state. The API performs a full replace of the profile's permissions — not a delta update.
+
+## Required permissions
+
+| Permission string | Action |
+|---|---|
+| `permisosperfil.consultar` | View the Permissions page and search by profile |
+| `permisosperfil.agregar` | Save permission changes for a profile |

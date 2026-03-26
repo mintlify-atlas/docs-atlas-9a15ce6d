@@ -1,0 +1,59 @@
+---
+title: "User profile"
+description: "View and understand your personal profile information in MindCorp."
+---
+
+The profile page shows personal information about the currently logged-in user, fetched live from the API on every load.
+
+## Accessing your profile
+
+There are two ways to open the profile page:
+
+- Click your **username** in the top-right corner of the navbar, then select **Mi Perfil**.
+- Navigate directly to `/ProfileUser`.
+
+## What is displayed
+
+On load, the page calls `GET api/Usuario/mi-perfil` via the portal's `ApiService`. The service automatically attaches the user's JWT token to the request. A successful response is deserialized into a `MiPerfilDto` object and its fields are displayed.
+
+### Profile fields
+
+| Field | Description |
+|---|---|
+| `Id` | Internal identifier for the user account. |
+| `UserName` | The user's login name, shown prominently on the card. |
+| `Imagen` | Optional avatar. When present, the API returns a base64-encoded image string that is rendered directly in the `<img>` tag. When absent, a generic person icon is shown instead. |
+| `Activo` | Account status. Displayed as a green "Activo" badge with an animated spinner when `true`, or a red "Inactivo" badge when `false`. |
+
+<Note>
+  Profile data is pulled live from the API on every page load. There is no local cache — refreshing the page always reflects the current state of the user record in the backend.
+</Note>
+
+## Avatar image
+
+If the user has an avatar configured, it is stored and returned by the API as a base64 image string in the `Imagen` field. The profile page renders it directly as the `src` attribute of an `<img>` element. If `Imagen` is null or empty, a placeholder icon is shown.
+
+## Error states
+
+<AccordionGroup>
+  <Accordion title="API returned a non-success status code">
+    The page displays the message:
+
+    > No se pudo cargar la información de tu perfil.
+
+    This occurs when the API responds with an HTTP error (4xx or 5xx). The `MiPerfilDto` fields are not populated, and the profile card is not shown — only the error alert is rendered.
+  </Accordion>
+  <Accordion title="Connection error">
+    The page displays the message:
+
+    > Error de conexión con el servidor.
+
+    This occurs when the HTTP request throws an exception (for example, the API is unreachable or the network is unavailable). The same error-only layout is shown.
+  </Accordion>
+</AccordionGroup>
+
+## Read-only access
+
+<Warning>
+  The profile page is read-only. You cannot change your username, avatar, account status, or profile assignment from this screen. To update any of these fields, an administrator must edit the user record via **Seguridad → Usuario**.
+</Warning>

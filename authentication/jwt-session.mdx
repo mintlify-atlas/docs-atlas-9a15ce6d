@@ -1,0 +1,103 @@
+---
+title: "JWT tokens and sessions"
+description: "How MindCorp stores and uses JWT tokens to authenticate API requests."
+---
+
+After a successful login, MindCorp holds your identity in two places simultaneously: a server-side session that stores the raw JWT, and an auth cookie that holds the decoded claims. Each serves a distinct role.
+
+## Token storage after login
+
+When the API returns a successful authentication response, the frontend does the following:
+
+1. Reads the `token` field from the JSON response body.
+2. Encodes the JWT as UTF-8 bytes and stores it in server-side ASP.NET session under the key `"token"`.
+3. Decodes the JWT using `JwtSecurityTokenHandler` to extract all claims.
+4. Builds a `ClaimsPrincipal` from the decoded claims and calls `HttpContext.SignInAsync` to issue the `WebCoorporativa.AuthCookie` auth cookie.
+
+<Note>
+The session idle timeout is **8 hours**, while the auth cookie expires after **1 hour** with sliding expiration. If you are active within the hour, the cookie renews automatically. However, if the session expires after 8 hours of inactivity, the stored JWT is lost and API calls will fail even if the cookie is still technically valid. In practice, the 1-hour cookie expiry is the binding constraint for active users.
+</Note>
+
+## Auth cookie configuration
+
+The auth cookie is configured in `Program.cs` with the following settings:
+
+| Setting | Value |
+|---|---|
+| Cookie name | `WebCoorporativa.AuthCookie` |
+| HttpOnly | `true` |
+| SameSite | `Lax` |
+| Secure policy | `SameAsRequest` |
+| Expiry | 1 hour |
+| Sliding expiration | `true` |
+| Login redirect | `/Login` |
+| Access denied redirect | `/Error` |
+
+## How API requests receive the token
+
+Every API call goes through `ApiService`. Before the request is sent, `AddTokenToRequest` reads the JWT from session and attaches it as a Bearer token:
+
+```csharp ApiService.cs
+private void AddTokenToRequest(HttpRequestMessage request)
+{
+    string? token = null;
+
+    var tokenBytes = _httpContextAccessor.HttpContext?.Session?.Get("token");
+    if (tokenBytes != null)
+        token = Encoding.UTF8.GetString(tokenBytes);
+
+    if (!string.IsNullOrEmpty(token))
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+}
+```
+
+This method is called internally by `Get`, `Post`, `Put`, and `Delete` before each request is dispatched. If no token is present in session (e.g. the session has expired), the request is sent without an `Authorization` header and the API will return an unauthorized response.
+
+## Claims decoded from the JWT
+
+The following claims are decoded from the JWT and stored in the auth cookie for in-process authorization:
+
+<ResponseField name="esAdmin" type="string">
+  `"true"` if the user is an administrator. Administrators bypass all individual permission checks — `TienePermiso` returns `true` for any permission string when this claim is present.
+</ResponseField>
+
+<ResponseField name="permiso" type="string (repeated)">
+  One claim per granted permission. Each value is a dot-separated string identifying the resource and action, for example `usuario.consultar` or `modulo.agregar`. A user may have zero or many `permiso` claims.
+</ResponseField>
+
+<ResponseField name="perfilId" type="string (numeric)">
+  The numeric ID of the user's assigned profile. Retrieved via the `GetPerfilId()` extension method, which parses the value to `int?`.
+</ResponseField>
+
+<ResponseField name="ClaimTypes.Name" type="string">
+  The standard .NET name claim, mapped to the authenticated username. If the JWT does not include a name claim, the `UserName` submitted at login is added explicitly.
+</ResponseField>
+
+## Permission checks
+
+Authorization throughout MindCorp uses the `TienePermiso` extension method on `ClaimsPrincipal`:
+
+```csharp ClaimsExtension.cs
+public static bool TienePermiso(this ClaimsPrincipal user, string permiso)
+{
+    if (user == null) return false;
+
+    if (user.Claims.Any(c => c.Type == "esAdmin" && c.Value.Equals("true", StringComparison.OrdinalIgnoreCase)))
+        return true;
+
+    return user.Claims
+        .Where(c => c.Type == "permiso")
+        .Any(c => c.Value == permiso);
+}
+```
+
+The method returns `true` in two cases:
+
+- The user has an `esAdmin` claim with the value `"true"` (case-insensitive), **or**
+- The user has a `permiso` claim whose value exactly matches the requested permission string.
+
+The companion method `GetPerfilId()` retrieves the user's profile ID from the `perfilId` claim as a nullable `int`.
+
+<Note>
+Permission values are matched with exact string equality. Passing `"usuario.Consultar"` when the claim value is `"usuario.consultar"` will not match. Always use lowercase dot-separated permission identifiers consistent with what the API issues.
+</Note>

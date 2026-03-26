@@ -1,0 +1,98 @@
+---
+title: "Users"
+description: "Create and manage user accounts, profile assignments, and account status."
+---
+
+The Users page lets you manage all accounts in MindCorp — creating new users, updating their profile assignment and active status, uploading avatars, and removing accounts when needed.
+
+## Accessing the Users page
+
+Navigate to **Seguridad → Usuario** in the top navigation menu. You must have the `usuario.consultar` permission to access this page.
+
+## What you see
+
+The page has two sections:
+
+- **Search filters** — narrow the list before viewing results
+- **Results table** — a paginated list (5 per page) of matching user accounts
+
+Each row in the results table shows:
+
+| Column | Description |
+|---|---|
+| **Usuario** | Avatar image (if set) and the account username |
+| **Perfil** | The name of the profile assigned to this user |
+| **Estado** | Active (`Activo`) or inactive (`Inactivo`) badge |
+| **Detalle** | Eye icon to view user details (requires `usuario.detalle`) |
+| **Editar** | Pencil icon to edit the user (requires `usuario.editar`) |
+| **Eliminar** | Trash icon to delete the user (requires `usuario.eliminar`) |
+
+## Filtering the list
+
+Use the search panel at the top to narrow results. You must provide at least one filter value before clicking **Buscar**. Available filters:
+
+- **Usuario** — partial match on username (case-insensitive)
+- **Perfil** — dropdown to filter by a specific profile
+- **Estado** — dropdown to show only active or only inactive accounts
+
+Click **Limpiar** to reset all filters and show the full list.
+
+## Creating a user
+
+<Steps>
+  <Step title="Open the create dialog">
+    Click **Agregar Usuario**. This button is only visible if you have the `usuario.agregar` permission.
+  </Step>
+  <Step title="Upload an avatar (optional)">
+    Click the file input under **Foto de Perfil** to select an image. Accepted formats are JPG, PNG, and WEBP, up to 10 MB. A preview appears immediately after selection.
+  </Step>
+  <Step title="Enter a username">
+    Type a username in the **Usuario** field. Valid characters are letters, numbers, periods, underscores, and hyphens. Minimum 3 characters, maximum 50.
+  </Step>
+  <Step title="Set a password">
+    Enter a password in the **Contraseña** field. It must be at least 6 characters and contain at least one number. Use the eye icon to toggle visibility.
+  </Step>
+  <Step title="Assign a profile">
+    Select a profile from the **Perfil** dropdown. All existing profiles are listed here.
+  </Step>
+  <Step title="Set active status">
+    The **Cuenta Activa** toggle is on by default. Disable it to create the account in an inactive state.
+  </Step>
+  <Step title="Save">
+    Click **Guardar**. A confirmation dialog appears before the account is created.
+  </Step>
+</Steps>
+
+<Note>
+  Avatar images are converted to base64 strings in the browser before being sent to the API. The image data is stored directly on the server as a base64-encoded string.
+</Note>
+
+## Editing a user
+
+Click the pencil icon on any row to open the edit dialog. You can update:
+
+- **Profile** — reassign the user to a different profile
+- **Active status** — enable or disable the account
+- **Avatar** — upload a replacement image
+
+<Warning>
+  The username and password cannot be changed from the edit screen. Username is displayed as read-only, and there is no password field in the edit form.
+</Warning>
+
+## Deleting a user
+
+Click the trash icon on any row. A confirmation dialog appears before the deletion is carried out.
+
+<Warning>
+  Deleting a user is permanent and cannot be undone. The account and all associated data will be removed from the system immediately.
+</Warning>
+
+## Required permissions
+
+| Permission string | Action |
+|---|---|
+| `usuario.consultar` | View the Users page and search results |
+| `usuario.agregar` | Create new user accounts |
+| `usuario.editar` | Edit existing users |
+| `usuario.eliminar` | Delete user accounts |
+| `usuario.detalle` | View the detail modal for a user |

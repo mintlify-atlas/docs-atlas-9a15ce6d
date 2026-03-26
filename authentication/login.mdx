@@ -1,0 +1,66 @@
+---
+title: "Logging in"
+description: "Step-by-step guide to signing in to MindCorp, including CAPTCHA requirements."
+---
+
+All unauthenticated users are redirected to `/Login` automatically. The login page is also reachable directly at `/Login`.
+
+## Login flow
+
+<Steps>
+  <Step title="Navigate to the login page">
+    Go to `/Login`. If you are not authenticated, any protected route in MindCorp will redirect you here automatically.
+  </Step>
+  <Step title="Enter your credentials">
+    Enter your username and password in the respective fields. Both fields are required.
+
+    <ParamField body="UserName" type="string" required>
+      Your MindCorp username. Must be at least 3 characters. Maximum 50 characters. The characters `< > " ' % ; ( ) & +` are stripped before submission.
+    </ParamField>
+
+    <ParamField body="Password" type="string" required>
+      Your account password. Must be at least 6 characters. The characters `< > " ' % ; ( ) & +` are stripped before submission.
+    </ParamField>
+  </Step>
+  <Step title="Complete the CAPTCHA">
+    Solve the Cloudflare Turnstile CAPTCHA widget displayed below the password field. The widget runs automatically — in most cases you only need to check a box. The submit button cannot proceed without a valid CAPTCHA token.
+
+    <Warning>
+      If you do not complete the CAPTCHA, the form will not submit. An alert — "Por favor completa el captcha" — is shown and the page remains on the login form. There is no server-side fallback: a missing CAPTCHA token causes the API to reject the request outright.
+    </Warning>
+  </Step>
+  <Step title="Click Iniciar Sesión">
+    Click the **Iniciar Sesión** button. Before the form is submitted to the server, client-side validation runs:
+
+    - Both fields are trimmed and sanitized (special characters removed).
+    - Username length is checked (≥ 3 characters).
+    - Password length is checked (≥ 6 characters).
+    - The presence of a CAPTCHA token is verified.
+
+    If any check fails, the form does not submit and an inline error message is displayed next to the offending field. The button is disabled after a valid submission to prevent duplicate requests.
+  </Step>
+  <Step title="Successful login">
+    On success, you are redirected to `/Index`. Your personalized navigation is rendered based on the permissions attached to your account.
+  </Step>
+  <Step title="Failed login">
+    If your credentials are incorrect, the page reloads and displays the error message **"Credenciales incorrectas"** above the form. Your username and password fields are cleared. Re-enter your credentials and complete the CAPTCHA again to retry.
+  </Step>
+</Steps>
+
+## Field constraints reference
+
+<ParamField body="UserName" type="string" required>
+  Minimum 3 characters, maximum 50 characters. The following characters are stripped client-side before the value is sent: `< > " ' % ; ( ) & +`
+</ParamField>
+
+<ParamField body="Password" type="string" required>
+  Minimum 6 characters. The following characters are stripped client-side before the value is sent: `< > " ' % ; ( ) & +`
+</ParamField>
+
+<ParamField body="CfTurnstileResponse" type="string" required>
+  The Cloudflare Turnstile CAPTCHA token. Populated automatically by the Turnstile widget when the CAPTCHA is solved. Forwarded to the API as `captchaToken`.
+</ParamField>
+
+<Note>
+Client-side sanitization strips `< > " ' % ; ( ) & +` from both fields to reduce XSS risk before the data leaves the browser. This does not replace server-side validation performed by the API.
+</Note>

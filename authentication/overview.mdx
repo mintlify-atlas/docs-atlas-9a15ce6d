@@ -1,0 +1,62 @@
+---
+title: "Authentication overview"
+description: "How MindCorp handles user authentication using JWT tokens and cookie-based sessions."
+---
+
+MindCorp uses a two-layer authentication approach: the API backend issues JWT tokens, and the ASP.NET Core frontend maintains a cookie-based browser session derived from those tokens. These two layers serve different purposes and work together on every request.
+
+<CardGroup cols={2}>
+  <Card title="Login flow" icon="arrow-right-to-bracket">
+    The browser posts credentials to `/Login`. The frontend calls `POST api/auth` with the username, password, and CAPTCHA token. On success, the JWT is decoded and the user is signed in via cookie authentication.
+  </Card>
+  <Card title="CAPTCHA protection" icon="shield-check">
+    Every login attempt requires a valid Cloudflare Turnstile token. The CAPTCHA token is forwarded as `captchaToken` in the API request and validated server-side before credentials are checked.
+  </Card>
+  <Card title="Session management" icon="clock">
+    The raw JWT is stored in server-side ASP.NET session (8-hour idle timeout). The auth cookie holds decoded claims for fast in-process authorization checks (1-hour sliding expiration).
+  </Card>
+  <Card title="Permissions" icon="key">
+    Claims decoded from the JWT determine what each user can access. Administrators (`esAdmin=true`) bypass all permission checks. All other users are authorized by individual `permiso` claims.
+  </Card>
+</CardGroup>
+
+## How the login flow works
+
+When a user submits the login form, the following sequence occurs:
+
+1. The browser sends a `POST` to `/Login` with `UserName`, `Password`, and `CfTurnstileResponse`.
+2. The `LoginModel` page handler calls `ApiService.Post("api/auth", ...)`, forwarding all three fields (including the CAPTCHA token as `captchaToken`).
+3. If the API returns a non-success status, `Credenciales incorrectas` is shown and the user stays on the login page.
+4. On success, the API response contains a JSON object with a `token` field (the JWT).
+5. The JWT is stored in server-side session as UTF-8 bytes under the key `"token"`.
+6. The JWT is decoded client-side using `JwtSecurityTokenHandler`. All claims are extracted and used to build a `ClaimsPrincipal`.
+7. `HttpContext.SignInAsync` creates the `WebCoorporativa.AuthCookie` cookie with the decoded claims.
+8. The user is redirected to `/Index`.
+
+## Session vs. cookie
+
+The two storage mechanisms are intentionally separate:
+
+| | Auth cookie | Server-side session |
+|---|---|---|
+| **Contents** | Decoded JWT claims (name, permissions, esAdmin, perfilId) | Raw JWT string |
+| **Purpose** | Fast in-process authorization checks | Forwarded as `Authorization: Bearer` on every API call |
+| **Expiry** | 1 hour, sliding | 8-hour idle timeout |
+| **HttpOnly** | Yes | Yes (session cookie) |
+
+<Note>
+The auth cookie never contains the raw JWT. It only holds the decoded claims. The raw JWT lives exclusively in server-side session and is never exposed to the browser directly.
+</Note>
+
+## Logout
+
+Logging out signs out the cookie authentication scheme and clears the entire server-side session, which removes the stored JWT. The user is then redirected to `/Login`.
+
+<Note>
+Clearing the session on logout means any in-flight API requests using the old JWT will fail immediately after sign-out, since the token is no longer available in session.
+</Note>
+
+## Related pages
+
+- [Logging in](/authentication/login) — Step-by-step login instructions including field constraints and CAPTCHA requirements.
+- [JWT tokens and sessions](/authentication/jwt-session) — How the JWT is stored, forwarded to the API, and how claims are used for authorization.

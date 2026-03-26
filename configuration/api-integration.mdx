@@ -1,0 +1,103 @@
+---
+title: "API integration"
+description: "How MindCorp connects to the WebCoorporativaAPI backend and forwards authentication tokens."
+---
+
+MindCorp is a pure frontend application built with ASP.NET Core Razor Pages. It has no database of its own — all data persistence, authentication, and business logic are handled by the companion **WebCoorporativaAPI** backend. Every page that displays or mutates data does so by proxying calls through `ApiService`.
+
+## HTTP client registration
+
+A named `HttpClient` called `"ApiClient"` is registered in `Program.cs` during startup:
+
+```csharp Program.cs
+builder.Services.AddHttpClient("ApiClient", client =>
+{
+    client.BaseAddress = new Uri(builder.Configuration["ApiSettings:BaseUrl"]);
+    client.Timeout = TimeSpan.FromMinutes(5);
+    client.MaxResponseContentBufferSize = 10 * 1024 * 1024; // 10 MB
+});
+```
+
+<CardGroup cols={3}>
+  <Card title="Base address" icon="link">
+    Set from `ApiSettings:BaseUrl` in configuration. All relative URLs passed to `ApiService` are resolved against this base.
+  </Card>
+  <Card title="Timeout" icon="clock">
+    5 minutes. Extended to accommodate large image uploads and slow backend responses.
+  </Card>
+  <Card title="Response buffer" icon="database">
+    10 MB maximum in-memory response buffer, sufficient for typical JSON payloads and avatar images.
+  </Card>
+</CardGroup>
+
+## ApiService
+
+`ApiService` (`Services/ApiService.cs`) is the single point of contact for all outbound HTTP calls. It is registered as a **scoped** service so that each request gets its own instance with access to the correct `HttpContext` (and therefore the correct session token).
+
+### Method signatures
+
+| Method | Signature | Description |
+|---|---|---|
+| `Get` | `Task<HttpResponseMessage> Get(string url)` | HTTP GET |
+| `Post` | `Task<HttpResponseMessage> Post<T>(string url, T data)` | HTTP POST with JSON body |
+| `Put` | `Task<HttpResponseMessage> Put<T>(string url, T data)` | HTTP PUT with JSON body |
+| `Delete` | `Task<HttpResponseMessage> Delete(string url)` | HTTP DELETE |
+
+All methods return the raw `HttpResponseMessage`. Page models are responsible for deserializing the response body and handling non-success status codes.
+
+### Token injection
+
+Every outgoing request is decorated with a Bearer token before it is sent. The token is read from the server-side session and attached via the `AddTokenToRequest` private method:
+
+```csharp Services/ApiService.cs
+private void AddTokenToRequest(HttpRequestMessage request)
+{
+    string? token = null;
+
+    var tokenBytes = _httpContextAccessor.HttpContext?.Session?.Get("token");
+    if (tokenBytes != null)
+        token = Encoding.UTF8.GetString(tokenBytes);
+
+    Console.WriteLine($"=== TOKEN: {token?.Substring(0, Math.Min(30, token.Length))}...");
+
+    if (!string.IsNullOrEmpty(token))
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+}
+```
+
+<Note>
+  The token is stored in the ASP.NET Core server-side session under the key `"token"` as a UTF-8 encoded byte array. It is written to the session after a successful login response from the API and is read on every subsequent request. Unauthenticated requests (no token in session) are sent without an `Authorization` header.
+</Note>
+
+### Usage example
+
+```csharp
+public class IndexModel : PageModel
+{
+    private readonly ApiService _api;
+
+    public IndexModel(ApiService api) => _api = api;
+
+    public async Task OnGetAsync()
+    {
+        var response = await _api.Get("employees");
+        response.EnsureSuccessStatusCode();
+        // deserialize response.Content ...
+    }
+}
+```
+
+## Upload limits
+
+The application is configured to accept large form submissions for avatar image uploads.
+
+| Limit | Value | Where configured |
+|---|---|---|
+| Kestrel max request body | 10 MB | `Program.cs` — `options.Limits.MaxRequestBodySize` |
+| Form field value length | 20 MB | `FormOptions.ValueLengthLimit` |
+| Multipart body total | 20 MB | `FormOptions.MultipartBodyLengthLimit` |
+| In-memory buffer per field | 20 MB | `FormOptions.MemoryBufferThreshold` |
+
+<Warning>
+  The Kestrel `MaxRequestBodySize` (10 MB) is lower than the form limits (20 MB). Requests with a body larger than 10 MB will be rejected by Kestrel before reaching the form parser. Adjust `MaxRequestBodySize` in `Program.cs` if you need to accept larger uploads.
+</Warning>

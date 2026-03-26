@@ -1,0 +1,56 @@
+---
+title: "Portal overview"
+description: "How MindCorp's pages, navigation menus, and permission-driven layout work."
+---
+
+MindCorp is a corporate web management portal built with ASP.NET Core Razor Pages. Every page shares a common layout: a sticky floating navbar at the top, a main content area, and a footer. The only exception is the Login page, which sets `OcultarMenu = true` to hide the navbar entirely.
+
+## Page structure
+
+For all authenticated pages, the layout renders three regions in order:
+
+1. **Navbar** — sticky, floats 20px from the top of the viewport. Hidden on the Login page.
+2. **Main content** — rendered by each page via `@RenderBody()`.
+3. **Footer** — shows the copyright line and a link to the Privacy/About page.
+
+All pages except Login require the user to be authenticated. The auth cookie's `LoginPath` is configured to `/Login`, so unauthenticated requests to any protected route are automatically redirected there. The `/Index` page explicitly adds the `[Authorize]` attribute; other pages rely on the cookie authentication redirect and per-page permission checks that redirect to `/Index` if the user lacks the required claim.
+
+## Navigation sections
+
+<CardGroup cols={2}>
+  <Card title="Inicio" icon="house">
+    Always visible. The home/dashboard page (`/Index`). Displays a welcome message and highlights the portal's three main areas: security management, JWT-based access, and dynamic navigation.
+  </Card>
+  <Card title="Principal 1" icon="file-text">
+    Dropdown menu. Visible when the user has any `principal11.*` or `principal12.*` permission claims. Contains **Principal 1.1** and **Principal 1.2**.
+  </Card>
+  <Card title="Principal 2" icon="collection">
+    Dropdown menu. Visible when the user has any `principal21.*` or `principal22.*` permission claims. Contains **Principal 2.1** and **Principal 2.2**.
+  </Card>
+  <Card title="Seguridad" icon="lock">
+    Dropdown menu. Visible when the user has any `perfil.*`, `permisosperfil.*`, `usuario.*`, or `modulo.*` permission claims. Contains **Módulos**, **Perfil**, **Permisos Perfil**, and **Usuario**.
+  </Card>
+  <Card title="Mi Usuario" icon="person-circle">
+    Always visible. Displays the logged-in username. Dropdown links to **Mi Perfil** (`/ProfileUser`) and **Cerrar Sesión** (logout).
+  </Card>
+</CardGroup>
+
+## Permission-driven visibility
+
+The layout evaluates visibility using a helper function, `TieneAlgunPermiso()`, defined directly in `_Layout.cshtml`. It checks whether the authenticated user holds any JWT claim of type `permiso` whose value starts with one of the given prefixes.
+
+```csharp
+bool TieneAlgunPermiso(params string[] prefijos) =>
+    esAdmin || User.Claims.Any(c => c.Type == "permiso" &&
+        prefijos.Any(p => c.Value.StartsWith(p)));
+```
+
+Each top-level dropdown is only rendered if at least one of its child permission prefixes is present. Individual dropdown items perform a second, more specific check before rendering their link.
+
+<Note>
+  Users with the `esAdmin` claim set to `"true"` bypass all permission checks and see every menu section and every action button across the portal.
+</Note>
+
+## Breadcrumbs
+
+Every management page renders a breadcrumb trail beneath the navbar. Breadcrumbs show the path from the home page to the current section (for example, **Inicio → Principal 2.1**). The breadcrumb items include a subtle hover scale animation defined via the `.breadcrumbTextAnim` CSS class.

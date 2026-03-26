@@ -1,0 +1,83 @@
+---
+title: "Principal menus"
+description: "Overview of the Principal 1 and Principal 2 functional page groups in MindCorp."
+---
+
+MindCorp ships with two functional page groups, **Principal 1** and **Principal 2**. These are template sections that demonstrate how to build and integrate new business modules into the portal using the standard Razor Pages pattern, permission checks, and neumorphic UI components.
+
+## Principal 1
+
+The Principal 1 group is gated by permissions with the prefixes `principal11.*` and `principal12.*`. The dropdown appears in the navbar when the user holds at least one matching claim.
+
+<CardGroup cols={2}>
+  <Card title="Principal 1.1" icon="file-earmark-text">
+    Path: `/Principales/PrincipalU1`
+
+    A form-based management page with a static data table (rows: Alfa, Beta, Gamma). Demonstrates the full CRUD modal pattern: add, view detail, edit, and delete — each action button controlled by its own permission key.
+  </Card>
+  <Card title="Principal 1.2" icon="file-earmark">
+    Path: `/Principales/PrincipalU2`
+
+    A second example page following the same pattern. Access requires any `principal12.*` permission.
+  </Card>
+</CardGroup>
+
+### Per-action permissions — Principal 1.1
+
+| Permission key | Controls |
+|---|---|
+| `principal11.agregar` | "Nuevo Registro" button |
+| `principal11.detalle` | View (eye) button per row |
+| `principal11.editar` | Edit (pencil) button per row |
+| `principal11.eliminar` | Delete (trash) button per row |
+
+## Principal 2
+
+The Principal 2 group is gated by permissions with the prefixes `principal21.*` and `principal22.*`.
+
+<CardGroup cols={2}>
+  <Card title="Principal 2.1" icon="collection">
+    Path: `/Principales/PrincipalD1`
+
+    A tabular data list page focused on document management. Shows static demo records (DOC-01: "Análisis de Requerimientos" / Sistemas / Alta, DOC-02: "Manual de Usuario" / Soporte / Media). Supports view, edit, and delete actions per row. Access requires `principal21.consultar` — users without it are redirected to `/Index`.
+  </Card>
+  <Card title="Principal 2.2" icon="collection-fill">
+    Path: `/Principales/PrincipalD2`
+
+    A second example page in the Principal 2 group. Access requires any `principal22.*` permission.
+  </Card>
+</CardGroup>
+
+### Per-action permissions — Principal 2.1
+
+| Permission key | Controls |
+|---|---|
+| `principal21.consultar` | Page access (redirects to `/Index` if absent) |
+| `principal21.agregar` | "Nuevo Registro" button |
+| `principal21.detalle` | View (eye) button per row |
+| `principal21.editar` | Edit (pencil) button per row |
+| `principal21.eliminar` | Delete (trash) button per row |
+
+## Adding a new functional module
+
+<Steps>
+  <Step title="Register the module">
+    Go to **Seguridad → Módulos** and create a new module entry. Give it a unique key prefix (for example, `inventario`).
+  </Step>
+  <Step title="Create the Razor Page">
+    Add a new `.cshtml` / `.cshtml.cs` pair under `Pages/`. In the page model's `OnGet`, check for `principal-level.consultar` using the `TienePermiso` helper and redirect to `/Index` if absent — matching the pattern in `PrincipalD1.cshtml.cs`.
+  </Step>
+  <Step title="Add permission checks to the view">
+    In the `.cshtml` file, declare the `esAdmin` flag and `TienePermiso` helper at the top of a code block, then gate each action button behind the appropriate key (`.agregar`, `.editar`, `.eliminar`, `.detalle`).
+  </Step>
+  <Step title="Wire up the navbar">
+    In `_Layout.cshtml`, add a new `var tieneMiModulo` check using `TieneAlgunPermiso("mimodulo.")` and render the corresponding `<li>` dropdown entry.
+  </Step>
+  <Step title="Assign permissions to profiles">
+    In **Seguridad → Permisos Perfil**, assign the new module's permission keys to the appropriate user profiles. The navbar entry will appear automatically for any user whose JWT claims include a matching `permiso` value.
+  </Step>
+</Steps>
+
+<Tip>
+  Every principal page follows the same three-part pattern: (1) a `consultar` guard in `OnGet` that redirects unauthorized users, (2) a static or API-backed data table in the view, and (3) per-row action buttons gated by individual permission keys. Copy this pattern when building real business modules.
+</Tip>

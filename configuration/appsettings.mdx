@@ -1,0 +1,96 @@
+---
+title: "Application settings"
+description: "Configure MindCorp using appsettings.json for API connection, CAPTCHA, and logging."
+---
+
+MindCorp reads its configuration from `appsettings.json` at the project root. Environment-specific overrides are applied by layering a second file on top:
+
+- **Development:** `appsettings.Development.json`
+- **Production:** `appsettings.Production.json`
+
+Values in the environment-specific file take precedence over `appsettings.json`. You should never commit secrets (such as Turnstile secret keys) to source control; use environment variables or a secrets manager in production.
+
+## Required configuration
+
+The base `appsettings.json` only contains logging defaults. You must supply the following keys in an environment-specific file or through environment variables before the application can start.
+
+<ParamField path="ApiSettings.BaseUrl" type="string" required>
+  The base URL of the WebCoorporativaAPI backend. All HTTP requests from `ApiService` are resolved relative to this URL. Must end with a trailing slash or match the path prefix expected by the API.
+
+  Example: `https://api.yourdomain.com/api`
+</ParamField>
+
+<ParamField path="Turnstile.SiteKey" type="string" required>
+  Your Cloudflare Turnstile **site key**. This is the public key embedded in the login page to render the CAPTCHA widget. Obtain it from the Cloudflare Turnstile dashboard.
+
+  Example: `0x4AAAAAACMvfvGL1dMNSnGJ`
+</ParamField>
+
+<ParamField path="Logging.LogLevel.Default" type="string" default="Information">
+  Minimum log level for all categories not matched by a more specific rule. Accepts standard .NET log level names: `Trace`, `Debug`, `Information`, `Warning`, `Error`, `Critical`, `None`.
+</ParamField>
+
+<ParamField path="Logging.LogLevel.Microsoft.AspNetCore" type="string" default="Warning">
+  Minimum log level for ASP.NET Core framework messages. Set to `Information` to see request pipeline details, or `Warning` (the default) to reduce noise.
+</ParamField>
+
+## Example configuration files
+
+<CodeGroup>
+
+```json appsettings.json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+```
+
+```json appsettings.Development.json
+{
+  "ApiSettings": {
+    "BaseUrl": "https://localhost:7100/api"
+  },
+  "Turnstile": {
+    "SiteKey": "<your-dev-site-key>"
+  },
+  "DetailedErrors": true,
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
+```
+
+```json appsettings.Production.json
+{
+  "ApiSettings": {
+    "BaseUrl": "https://api.yourdomain.com/api"
+  },
+  "Turnstile": {
+    "SiteKey": "<your-production-site-key>"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
+```
+
+</CodeGroup>
+
+<Warning>
+  Never commit `ApiSettings:BaseUrl` credentials or Turnstile secret keys to source control. Use `appsettings.Production.json` (excluded from version control) or inject values as environment variables at deploy time.
+</Warning>
+
+<Note>
+  `AllowedHosts` is set to `"*"` by default, which permits requests from any host header. In production you should restrict this to your actual domain, for example `"yourdomain.com"`.
+</Note>

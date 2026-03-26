@@ -1,0 +1,107 @@
+---
+title: "Deployment"
+description: "Deploy MindCorp to a production environment."
+---
+
+<Steps>
+
+  <Step title="Meet the prerequisites">
+    Before deploying, make sure you have the following in place:
+
+    - **.NET 10 runtime** installed on the target host. Download from [dot.net](https://dotnet.microsoft.com/download).
+    - A **running WebCoorporativaAPI** instance reachable from the host, with its base URL noted.
+    - A **Cloudflare Turnstile site key** (and matching secret key) for your production domain. Create a site in the [Cloudflare Turnstile dashboard](https://dash.cloudflare.com/?to=/:account/turnstile).
+  </Step>
+
+  <Step title="Create appsettings.Production.json">
+    Create `appsettings.Production.json` in the project root (next to `appsettings.json`). This file is loaded automatically when `ASPNETCORE_ENVIRONMENT=Production`.
+
+    ```json appsettings.Production.json
+    {
+      "ApiSettings": {
+        "BaseUrl": "https://api.yourdomain.com/api"
+      },
+      "Turnstile": {
+        "SiteKey": "<your-production-site-key>"
+      },
+      "Logging": {
+        "LogLevel": {
+          "Default": "Information",
+          "Microsoft.AspNetCore": "Warning"
+        }
+      }
+    }
+    ```
+
+    <Tip>
+      You can also supply these values as environment variables instead of a file. ASP.NET Core maps `ApiSettings__BaseUrl` (double underscore) to `ApiSettings:BaseUrl` in configuration.
+    </Tip>
+  </Step>
+
+  <Step title="Build for production">
+    Run the publish command from the project directory to produce a self-contained release build:
+
+    ```bash
+    dotnet publish -c Release -o ./publish
+    ```
+
+    The `./publish` directory will contain `WebCoorporativa.dll` and all runtime dependencies.
+  </Step>
+
+  <Step title="Run the published application">
+    Set the environment and start the application:
+
+    ```bash
+    export ASPNETCORE_ENVIRONMENT=Production
+    dotnet ./publish/WebCoorporativa.dll
+    ```
+
+    By default the application listens on `http://localhost:5000` and `https://localhost:5001`. Configure the URLs with the `ASPNETCORE_URLS` environment variable or a `urls` entry in configuration if your host requires a different port.
+  </Step>
+
+  <Step title="Configure HTTPS">
+    MindCorp enforces HTTPS in all non-development environments. The middleware pipeline calls `app.UseHttpsRedirection()` unconditionally and `app.UseHsts()` when not running in Development:
+
+    ```csharp Program.cs
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseExceptionHandler("/Error");
+        app.UseHsts();
+    }
+
+    app.UseHttpsRedirection();
+    ```
+
+    <Warning>
+      HTTPS is required in production. Ensure your host provides a valid TLS certificate and that port 443 is accessible. Without HTTPS, `UseHttpsRedirection` will redirect all traffic to an HTTPS URL that may not be reachable, effectively making the application inaccessible over HTTP.
+    </Warning>
+
+    If you are running behind a reverse proxy (nginx, Caddy, Azure Application Gateway, etc.), configure the proxy to terminate TLS and forward requests to the application on an internal HTTP port. You may also need to add forwarded-headers middleware so that `UseHttpsRedirection` sees the correct scheme.
+  </Step>
+
+  <Step title="Configure session storage">
+    By default, ASP.NET Core sessions are stored **in-memory** on the server process. This works correctly for single-instance deployments. The session idle timeout is set to 8 hours.
+
+    <Note>
+      In-memory sessions are not suitable for multi-instance deployments. If you run more than one instance of MindCorp (e.g., behind a load balancer), each instance has its own independent session store. A user whose request is routed to a different instance will lose their session, including their Bearer token, and be redirected to the login page.
+
+      To support multiple instances, configure a distributed session provider such as **Redis** using `AddStackExchangeRedisCache` and `AddSession` with a distributed backing store.
+    </Note>
+  </Step>
+
+  <Step title="Monitor error logs">
+    Unhandled exceptions that escape the ASP.NET Core pipeline are caught by a top-level `UnhandledException` handler and written to a plain-text file:
+
+    ```csharp Program.cs
+    AppDomain.CurrentDomain.UnhandledException += (sender, e) =>
+    {
+        var ex = e.ExceptionObject as Exception;
+        var path = Path.Combine(AppContext.BaseDirectory, "crash_api.txt");
+        File.AppendAllText(path, $"[{DateTime.Now}] {ex?.Message}\n{ex?.StackTrace}\n\n");
+    };
+    ```
+
+    The log file `crash_api.txt` is written to the application base directory (the folder containing `WebCoorporativa.dll`). Make sure the process has write permission to that directory. For ongoing monitoring, forward application logs to your preferred log aggregation system using a logging provider such as Serilog or the built-in file logger.
+  </Step>
+
+</Steps>

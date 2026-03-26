@@ -1,0 +1,71 @@
+---
+title: "Profiles"
+description: "Manage user role profiles that define access levels across the system."
+---
+
+A profile is a named role — for example, Administrator or Operator — that groups a set of permissions. Every user account in MindCorp is assigned exactly one profile, which determines what they can see and do across the portal.
+
+## The administrator flag
+
+<Note>
+  When a profile has the **Administrador** flag enabled (`bitAdministrador = true`), it bypasses all individual permission checks entirely. Users assigned to an admin profile have unrestricted access to every module and action in the system — no additional permissions need to be configured.
+</Note>
+
+## Accessing the Profiles page
+
+Navigate to **Seguridad → Perfil** in the top navigation menu. You must have the `perfil.consultar` permission to access this page. Without it, you will be redirected to the home page.
+
+## What you see
+
+The page displays a paginated table (5 records per page) listing all profiles in the system. Each row shows:
+
+| Column | Description |
+|---|---|
+| **Nombre del Perfil** | The display name of the profile |
+| **Administrador** | A badge indicating whether the profile has full admin access (`Admin`) or standard access (`Estándar`) |
+| **Detalle** | Eye icon to view profile details (requires `perfil.detalle`) |
+| **Editar** | Pencil icon to edit the profile (requires `perfil.editar`) |
+| **Eliminar** | Trash icon to delete the profile (requires `perfil.eliminar`) |
+
+## Creating a profile
+
+<Steps>
+  <Step title="Open the create dialog">
+    Click the **Nuevo Perfil** button in the top-right area of the profiles section. This button is only visible if you have the `perfil.agregar` permission.
+  </Step>
+  <Step title="Enter a profile name">
+    Type a name in the **Nombre del Perfil** field. The name must be at least 3 characters and can include letters (including accented characters), numbers, and spaces. Maximum 80 characters.
+  </Step>
+  <Step title="Set the administrator flag">
+    Toggle the **Privilegios de Administrador** switch if this profile should have unrestricted system access. Leave it off for standard role-based access.
+  </Step>
+  <Step title="Save">
+    Click **Guardar**. The page will reload and the new profile will appear in the table.
+  </Step>
+</Steps>
+
+## Editing a profile
+
+Click the pencil icon on any row to open the edit dialog. You can update the profile name and toggle the administrator flag. Click **Actualizar** to save your changes.
+
+## Deleting a profile
+
+Click the trash icon on any row. A confirmation dialog will appear asking you to confirm the deletion. Click **OK** to proceed.
+
+<Warning>
+  Deleting a profile is immediate and cannot be undone. Make sure no users are assigned to the profile before deleting it, as this may leave those accounts without a valid role.
+</Warning>
+
+## Required permissions
+
+| Permission string | Action |
+|---|---|
+| `perfil.consultar` | View the Profiles page and see the table |
+| `perfil.agregar` | Create new profiles |
+| `perfil.editar` | Edit existing profiles |
+| `perfil.eliminar` | Delete profiles |
+| `perfil.detalle` | View the detail modal for a profile |
+
+## Next steps
+
+After creating a profile, go to [Permissions](/security/permissions) to assign module-level access for that profile. Admin profiles do not require any permission assignments.
